@@ -34,9 +34,13 @@ class s3du(object):
             part = [('/' + bucket + '/' + i['Key'], i['Size']) for i in res['Contents']]
             files += part
 
+        """
         data = json.dumps(files)
         with open("s3du.json", "w") as f:
             f.write(data)
+        """
+
+        return files
 
     def load_files(self):
         with open("s3du.json", "r") as f:
