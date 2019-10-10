@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 # vim: set fileencoding=utf-8 tw=0:
+#
+# Uses ncdu to interactively inspect all available S3 buckets.
+#
+# https://github.com/umonkey/s3du
+#
+# TODO:
+# - use system tempdir to store the intermediate json file
+# - make sure ncdu is installed
+# - make sure boto is configured
 
 import json
 import subprocess
@@ -78,8 +87,8 @@ class s3du(object):
     @classmethod
     def main(cls):
         me = cls()
-        # files = me.list_files()
-        files = me.load_files()
+        files = me.list_files()
+        # files = me.load_files()
         tree = me.parse_list(files)
         ncdu = me.convert_tree(tree)
 
@@ -89,5 +98,9 @@ class s3du(object):
         subprocess.Popen(['ncdu', '-f', 'ncdu.json']).wait()
 
 
-if __name__ == '__main__':
+def main():
     s3du().main()
+
+
+if __name__ == '__main__':
+    main()
