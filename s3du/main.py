@@ -30,15 +30,20 @@ class s3du(object):
 
         buckets = self.list_buckets()
         for bucket in buckets:
-            res = self.s3.list_objects_v2(Bucket=bucket, MaxKeys=1000)
-            part = [('/' + bucket + '/' + i['Key'], i['Size']) for i in res['Contents']]
-            files += part
+            count = 0
+            args = {'Bucket': bucket, 'MaxKeys': 1000}
+            while True:
+                res = self.s3.list_objects_v2(**args)
+                for item in res['Contents']:
+                    files.append(('/' + bucket + '/' + item['Key'], item['Size']))
 
-        """
-        data = json.dumps(files)
-        with open("s3du.json", "w") as f:
-            f.write(data)
-        """
+                count += len(res['Contents'])
+
+                if 'NextContinuationToken' in res:
+                    args['ContinuationToken'] = res['NextContinuationToken']
+                    print("Listing bucket %s, found %u files already..." % (bucket, count))
+                else:
+                    break
 
         return files
 
