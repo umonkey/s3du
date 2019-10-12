@@ -75,14 +75,14 @@ class s3du(object):
 
     def convert_branch(self, branch, name):
         res = []
-        res.append({'name': name})
+        res.append({'name': name or '(unnamed)'})
 
         for k, v in branch['dirs'].items():
             res.append(self.convert_branch(v, k))
 
         for (fname, size) in branch['files']:
             res.append({
-                'name': fname,
+                'name': fname or '(unnamed)',
                 'dsize': size,
             })
 
