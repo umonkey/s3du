@@ -10,16 +10,58 @@
 # - make sure ncdu is installed
 # - make sure boto is configured
 
+from __future__ import print_function
+
 import json
+import os
 import subprocess
+import sys
+import tempfile
 import time
+import warnings
 
 import boto3
+
+
+USAGE = """Usage: s3du options|filename.json
+
+Options:
+-i   interactive, run ncdu
+-v   verbose, display some progress"""
 
 
 class s3du(object):
     def __init__(self):
         self.s3 = boto3.client('s3')
+        self.verbose = False
+        self.interactive = False
+        self.filename = None
+        self.keep_file = False
+
+    def usage(self):
+        print(USAGE, file=sys.stderr)
+        exit(1)
+
+    def parse_args(self, argv):
+        if len(argv) == 1:
+            self.usage()
+
+        for arg in argv[1:]:
+            if arg == '-i':
+                self.interactive = True
+            elif arg == '-v':
+                self.verbose = True
+            elif arg.startswith('-'):
+                self.usage()
+            elif self.filename:
+                self.usage()
+            else:
+                self.filename = arg
+                self.keep_file = True
+
+        if not self.filename:
+            warnings.filter('ignore', 'tempnam')
+            self.filename = os.tempnam(tempfile.gettempdir(), 's3du_')
 
     def list_buckets(self):
         tmp = self.s3.list_buckets()
@@ -30,26 +72,23 @@ class s3du(object):
 
         buckets = self.list_buckets()
         for bucket in buckets:
-            count = 0
+            if self.verbose:
+                print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+
             args = {'Bucket': bucket, 'MaxKeys': 1000}
             while True:
                 res = self.s3.list_objects_v2(**args)
                 for item in res['Contents']:
                     files.append(('/' + bucket + '/' + item['Key'], item['Size']))
 
-                count += len(res['Contents'])
-
                 if 'NextContinuationToken' in res:
                     args['ContinuationToken'] = res['NextContinuationToken']
-                    print("Listing bucket %s, found %u files already..." % (bucket, count))
+                    if self.verbose:
+                        print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
                 else:
                     break
 
         return files
-
-    def load_files(self):
-        with open("s3du.json", "r") as f:
-            return json.loads(f.read())
 
     def parse_list(self, files):
         tree = {'dirs': {}, 'files': []}
@@ -96,15 +135,19 @@ class s3du(object):
     @classmethod
     def main(cls):
         me = cls()
+        me.parse_args(sys.argv)
+
         files = me.list_files()
-        # files = me.load_files()
         tree = me.parse_list(files)
         ncdu = me.convert_tree(tree)
 
-        with open("ncdu.json", "w") as f:
+        with open(me.filename, "w") as f:
             f.write(json.dumps(ncdu))
 
-        subprocess.Popen(['ncdu', '-f', 'ncdu.json']).wait()
+        subprocess.Popen(['ncdu', '-f', me.filename]).wait()
+
+        if not me.keep_file:
+            os.unlink(me.filenam)
 
 
 def main():
