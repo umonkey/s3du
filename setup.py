@@ -7,7 +7,7 @@ most storage.
 
 setup(
     name='s3du',
-    version='0.6',
+    version='0.7',
     description='Inspect Amazon S3 buckets interactively with ncdu',
     author='Justin Forest',
     author_email='hex@umonkey.net',

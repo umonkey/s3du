@@ -12,6 +12,7 @@
 
 from __future__ import print_function
 
+import csv
 import json
 import os
 import subprocess
@@ -40,6 +41,7 @@ class s3du(object):
         self.keep_file = False
         self.storage_class = None
         self.classes = set()
+        self.csv_name = os.path.expanduser('~/.cache/s3du-cache.csv')
 
     def usage(self):
         print(USAGE, file=sys.stderr)
@@ -78,29 +80,46 @@ class s3du(object):
         tmp = self.s3.list_buckets()
         return [b['Name'] for b in tmp['Buckets']]
 
+    def cache_files(self):
+        if os.path.exists(self.csv_name):
+            if time.time() - os.stat(self.csv_name).st_mtime < 3600:
+                print('Using file list from cache: %s' % self.csv_name)
+                return
+
+        with open(self.csv_name, 'w') as f:
+            writer = csv.writer(f)
+
+            buckets = self.list_buckets()
+            for bucket in buckets:
+                if self.verbose:
+                    print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+
+                args = {'Bucket': bucket, 'MaxKeys': 1000}
+                while True:
+                    res = self.s3.list_objects_v2(**args)
+                    for item in res['Contents']:
+                        writer.writerow([bucket, item['Key'], item['Size'], item['StorageClass']])
+
+                    if 'NextContinuationToken' in res:
+                        args['ContinuationToken'] = res['NextContinuationToken']
+                        if self.verbose:
+                            print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+                    else:
+                        break
+
     def list_files(self):
+        """Lists all files and saves then in the cache file."""
         files = []
 
-        buckets = self.list_buckets()
-        for bucket in buckets:
-            if self.verbose:
-                print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+        with open(self.csv_name, 'r') as f:
+            reader = csv.reader(f)
+            for (bucket, key, size, sclass) in reader:
+                if self.storage_class and self.storage_class != sclass:
+                    continue
 
-            args = {'Bucket': bucket, 'MaxKeys': 1000}
-            while True:
-                res = self.s3.list_objects_v2(**args)
-                for item in res['Contents']:
-                    self.classes.add(item['StorageClass'])
-                    if self.storage_class and self.storage_class != item['StorageClass']:
-                        continue
-                    files.append(('/' + bucket + '/' + item['Key'], item['Size']))
-
-                if 'NextContinuationToken' in res:
-                    args['ContinuationToken'] = res['NextContinuationToken']
-                    if self.verbose:
-                        print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
-                else:
-                    break
+                path = '/' + bucket + '/' + key
+                size = int(size)
+                files.append((path, size))
 
         return files
 
@@ -150,6 +169,8 @@ class s3du(object):
     def main(cls):
         me = cls()
         me.parse_args(sys.argv)
+
+        me.cache_files()  # list files and write ~/.cache/s3du-cache.csv
 
         files = me.list_files()
         tree = me.parse_list(files)
