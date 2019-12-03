@@ -7,7 +7,13 @@ Inspired by [ncdu-s3][2], which only works with a single bucket.
 
 ```bash
 $ sudo pip install s3du
-$ s3du
+$ s3du -i
+```
+
+List only files of the `STANDARD` class:
+
+```bash
+$ s3du -i -c STANDARD
 ```
 
 Read [here][3] on configuring boto.

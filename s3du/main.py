@@ -26,8 +26,9 @@ import boto3
 USAGE = """Usage: s3du options|filename.json
 
 Options:
--i   interactive, run ncdu
--v   verbose, display some progress"""
+-i      interactive, run ncdu
+-v      verbose, display some progress
+-c STR  only show this storage class, values: STANDARD, STANDARD_IA, GLACIER, DEEP_ARCHIVE"""
 
 
 class s3du(object):
@@ -37,6 +38,8 @@ class s3du(object):
         self.interactive = False
         self.filename = None
         self.keep_file = False
+        self.storage_class = None
+        self.classes = set()
 
     def usage(self):
         print(USAGE, file=sys.stderr)
@@ -46,11 +49,19 @@ class s3du(object):
         if len(argv) == 1:
             self.usage()
 
+        prev = None
         for arg in argv[1:]:
+            if prev == '-c':
+                self.storage_class = arg
+                prev = None
+                continue
             if arg == '-i':
                 self.interactive = True
             elif arg == '-v':
                 self.verbose = True
+            elif arg == '-c':
+                prev = arg
+                continue
             elif arg.startswith('-'):
                 self.usage()
             elif self.filename:
@@ -60,8 +71,8 @@ class s3du(object):
                 self.keep_file = True
 
         if not self.filename:
-            warnings.filter('ignore', 'tempnam')
-            self.filename = os.tempnam(tempfile.gettempdir(), 's3du_')
+            warnings.simplefilter('ignore', 'tempnam')
+            self.filename = tempfile.mkstemp(dir=tempfile.gettempdir(), prefix='s3du_')[1]
 
     def list_buckets(self):
         tmp = self.s3.list_buckets()
@@ -79,6 +90,9 @@ class s3du(object):
             while True:
                 res = self.s3.list_objects_v2(**args)
                 for item in res['Contents']:
+                    self.classes.add(item['StorageClass'])
+                    if self.storage_class and self.storage_class != item['StorageClass']:
+                        continue
                     files.append(('/' + bucket + '/' + item['Key'], item['Size']))
 
                 if 'NextContinuationToken' in res:
@@ -147,7 +161,9 @@ class s3du(object):
         subprocess.Popen(['ncdu', '-f', me.filename]).wait()
 
         if not me.keep_file:
-            os.unlink(me.filenam)
+            os.unlink(me.filename)
+
+        print('Found objects of classes: %s.' % ', '.join(me.classes))
 
 
 def main():
