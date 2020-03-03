@@ -98,7 +98,7 @@ class s3du(object):
                 while True:
                     res = self.s3.list_objects_v2(**args)
                     for item in res['Contents']:
-                        writer.writerow([bucket, item['Key'], item['Size'], item['StorageClass']])
+                        writer.writerow([bucket, item['Key'].encode('utf-8'), item['Size'], item['StorageClass']])
 
                     if 'NextContinuationToken' in res:
                         args['ContinuationToken'] = res['NextContinuationToken']

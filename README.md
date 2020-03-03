@@ -18,6 +18,13 @@ $ s3du -i -c STANDARD
 
 Read [here][3] on configuring boto.
 
+
+## Changes
+
+2020-03-03:
+
+- Fixed reading unicode file names.
+
 [1]: http://dev.yorhel.nl/ncdu
 [2]: https://github.com/EverythingMe/ncdu-s3
 [3]: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html
