@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 *.json
-s3du.egg-info
-dist
+/s3du/__pycache__
 build
+dist
+s3du.egg-info
