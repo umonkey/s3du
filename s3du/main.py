@@ -39,6 +39,7 @@ class s3du(object):
         self.interactive = False
         self.filename = None
         self.keep_file = False
+        self.nocache = False
         self.storage_class = None
         self.classes = set()
         self.csv_name = os.path.expanduser('~/.cache/s3du-cache.csv')
@@ -64,6 +65,8 @@ class s3du(object):
             elif arg == '-c':
                 prev = arg
                 continue
+            elif arg == '-n':
+                self.nocache = True
             elif arg.startswith('-'):
                 self.usage()
             elif self.filename:
@@ -81,29 +84,31 @@ class s3du(object):
         return [b['Name'] for b in tmp['Buckets']]
 
     def cache_files(self):
-        if os.path.exists(self.csv_name):
+        if os.path.exists(self.csv_name) and not self.nocache:
             if time.time() - os.stat(self.csv_name).st_mtime < 3600:
                 print('Using file list from cache: %s' % self.csv_name)
                 return
 
         with open(self.csv_name, 'w') as f:
             writer = csv.writer(f)
+            count = 0
 
             buckets = self.list_buckets()
             for bucket in buckets:
                 if self.verbose:
-                    print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+                    print("Listing bucket %s, found %u files already..." % (bucket, count))
 
                 args = {'Bucket': bucket, 'MaxKeys': 1000}
                 while True:
                     res = self.s3.list_objects_v2(**args)
                     for item in res['Contents']:
-                        writer.writerow([bucket, item['Key'].encode('utf-8'), item['Size'], item['StorageClass']])
+                        writer.writerow([bucket, item['Key'], item['Size'], item['StorageClass']])
+                        count += 1
 
                     if 'NextContinuationToken' in res:
                         args['ContinuationToken'] = res['NextContinuationToken']
                         if self.verbose:
-                            print("Listing bucket %s, found %u files already..." % (bucket, len(files)))
+                            print("Listing bucket %s, found %u files already..." % (bucket, count))
                     else:
                         break
 

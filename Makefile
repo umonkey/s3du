@@ -3,7 +3,7 @@ help:
 
 dist:
 	rm -rf dist
-	python setup.py sdist bdist_wheel
+	python3 setup.py sdist bdist_wheel
 	rm -rf s3du.egg-info build
 	ls -ldh dist/s3du-*
 
